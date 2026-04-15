@@ -145,6 +145,28 @@
   .save-status.saving { color: var(--warning); }
   .save-status.saved { color: var(--success); }
   .save-status.error { color: var(--danger); }
+  .presence-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .presence-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .presence-dot.active { background: var(--success); }
+  .presence-count { color: var(--text); }
   .btn-logout {
     background: transparent;
     border: 1px solid var(--border2);
@@ -655,6 +677,11 @@
   <header>
     <div class="header-brand">B16 SET Corp <span>// ADMIN</span></div>
     <div class="header-actions">
+      <div class="presence-badge" id="presence-badge" title="Active editors">
+        <div class="presence-dot" id="presence-dot"></div>
+        <span id="presence-count" class="presence-count">—</span>
+        <span>editing</span>
+      </div>
       <div class="save-status" id="save-status"></div>
       <button class="btn-logout" onclick="logout()">Log out</button>
     </div>
@@ -756,6 +783,9 @@ const WORKER_URL = 'https://b16-admin-worker.b16setc.workers.dev';
 let authToken = null; // session password (held in memory only)
 let appData = null;   // full Firebase snapshot
 let expandedCard = null;
+let sessionId = null; // unique ID for this browser tab
+let pollInterval = null;
+let heartbeatInterval = null;
 
 // ══════════════════════════════════════════════
 // LOGIN
@@ -779,7 +809,10 @@ async function doLogin() {
       appData = await res.json();
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('app').style.display = 'block';
+      sessionId = 'session_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now();
       renderAll();
+      startHeartbeat();
+      startPolling();
     } else {
       err.textContent = res.status === 401 ? 'Wrong password.' : 'Connection error. Check Worker URL.';
     }
@@ -791,6 +824,13 @@ async function doLogin() {
 }
 
 function logout() {
+  stopPolling();
+  stopHeartbeat();
+  // Remove our presence entry
+  if (sessionId) {
+    workerRequest('DELETE', `/data/presence/${sessionId}`).catch(() => {});
+    sessionId = null;
+  }
   authToken = null;
   appData = null;
   document.getElementById('app').style.display = 'none';
@@ -834,11 +874,62 @@ async function save(path, data) {
 }
 
 // ══════════════════════════════════════════════
-// RENDER
+// LIVE POLLING — syncs data from server every 5s
 // ══════════════════════════════════════════════
+function startPolling() {
+  pollInterval = setInterval(async () => {
+    try {
+      const res = await workerRequest('GET', '/data');
+      if (res.ok) {
+        const fresh = await res.json();
+        // Merge without clobbering any card the user has open/editing
+        appData = fresh;
+        renderAll();
+      }
+    } catch(e) { /* silent — save-status already shows errors */ }
+  }, 1000);
+}
+
+function stopPolling() {
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+}
+
+// ══════════════════════════════════════════════
+// PRESENCE — heartbeat every 15s, expire > 30s
+// ══════════════════════════════════════════════
+function startHeartbeat() {
+  sendHeartbeat(); // immediate first beat
+  heartbeatInterval = setInterval(sendHeartbeat, 1000);
+}
+
+function stopHeartbeat() {
+  if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+}
+
+async function sendHeartbeat() {
+  if (!sessionId || !authToken) return;
+  try {
+    await workerRequest('PATCH', `/data/presence/${sessionId}`, { ts: Date.now() });
+  } catch(e) { /* silent */ }
+}
+
+function renderPresence() {
+  const presence = appData?.presence || {};
+  const now = Date.now();
+  const TIMEOUT_MS = 2000; // 35s — 2 missed heartbeats + buffer
+  const active = Object.values(presence).filter(p => p?.ts && (now - p.ts) < TIMEOUT_MS);
+  const count = active.length;
+  const dot = document.getElementById('presence-dot');
+  const label = document.getElementById('presence-count');
+  dot.classList.toggle('active', count > 0);
+  label.textContent = count === 1 ? '1 person' : `${count} people`;
+}
+
+
 function renderAll() {
   renderHold();
   renderMissions();
+  renderPresence();
 }
 
 function renderHold() {
@@ -869,7 +960,7 @@ function renderHold() {
 function renderMissions() {
   const list = document.getElementById('mission-list');
   const missions = Object.entries(appData.missions || {})
-    .sort(([,a],[,b]) => (a.order||99) - (b.order||99));
+    .sort(([,a],[,b]) => (b.order||0) - (a.order||0));
   list.innerHTML = '';
   for (const [key, m] of missions) {
     list.appendChild(makeMissionCard(key, m));
