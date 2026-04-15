@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B16 SET Corp — Mission Control Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111418;
+    --surface2: #181c22;
+    --border: #252b34;
+    --border2: #2f3742;
+    --accent: #00d4ff;
+    --accent2: #0099bb;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --partial: #f97316;
+    --text: #e8edf3;
+    --muted: #6b7785;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── LOGIN ─── */
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,212,255,0.06) 0%, transparent 70%),
+      var(--bg);
+  }
+  .login-box {
+    width: 360px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2.5rem;
+  }
+  .login-logo {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .login-title {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 2rem;
+  }
+  .login-box label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .login-box input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .login-box input:focus { border-color: var(--accent); }
+  .login-error {
+    font-size: 12px;
+    color: var(--danger);
+    margin-top: 8px;
+    min-height: 18px;
+    font-family: var(--mono);
+  }
+  .btn-primary {
+    width: 100%;
+    margin-top: 1.5rem;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 11px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  .btn-primary:hover { background: #33ddff; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ─── APP SHELL ─── */
+  #app { display: none; }
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-brand {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+  }
+  .header-brand span { color: var(--muted); font-weight: 400; }
+  .header-actions { display: flex; align-items: center; gap: 12px; }
+  .save-status {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 140px;
+    text-align: right;
+  }
+  .save-status.saving { color: var(--warning); }
+  .save-status.saved { color: var(--success); }
+  .save-status.error { color: var(--danger); }
+  .btn-logout {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+  .main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 2rem 4rem;
+  }
+
+  /* ─── SECTION HEADERS ─── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 2rem 0 1rem;
+  }
+  .section-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* ─── HOLD PANEL ─── */
+  .hold-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .hold-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+  .hold-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--success);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .hold-dot.held {
+    background: var(--danger);
+    box-shadow: 0 0 0 4px rgba(239,68,68,0.15);
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 4px rgba(239,68,68,0.15); }
+    50% { box-shadow: 0 0 0 8px rgba(239,68,68,0.05); }
+  }
+  .hold-label {
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .hold-meta {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+  .btn-hold {
+    background: transparent;
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .btn-hold:hover { border-color: var(--warning); color: var(--warning); }
+  .btn-hold.btn-resume:hover { border-color: var(--success); color: var(--success); }
+  .btn-hold.btn-reset { color: var(--muted); }
+  .btn-hold.btn-reset:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* ─── MISSION LIST ─── */
+  .mission-list { display: flex; flex-direction: column; gap: 8px; }
+  .mission-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .mission-card:hover { border-color: var(--border2); }
+  .mission-card.expanded { border-color: var(--accent); }
+  .mission-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.875rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .mission-order {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    width: 24px;
+    flex-shrink: 0;
+  }
+  .mission-name-col { flex: 1; min-width: 0; }
+  .mission-name {
+    font-weight: 500;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mission-date { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .status-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .status-success    { background: rgba(34,197,94,0.12);  color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+  .status-failure    { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+  .status-partial-success { background: rgba(249,115,22,0.12); color: #fb923c; border: 1px solid rgba(249,115,22,0.25); }
+  .status-upcoming   { background: rgba(0,212,255,0.1);   color: var(--accent); border: 1px solid rgba(0,212,255,0.2); }
+  .mission-chevron {
+    color: var(--muted);
+    font-size: 12px;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+    font-family: var(--mono);
+  }
+  .mission-card.expanded .mission-chevron { transform: rotate(180deg); }
+
+  /* ─── EDIT FORM ─── */
+  .mission-form {
+    display: none;
+    padding: 0 1.25rem 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+  .mission-card.expanded .mission-form { display: block; }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 1rem;
+  }
+  .form-grid .full { grid-column: 1 / -1; }
+  .field label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+    font-family: var(--mono);
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--accent);
+  }
+  .field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  .field select { cursor: pointer; }
+  .field select option { background: #1a1f27; }
+  .form-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .btn-save {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-save:hover { background: #33ddff; }
+  .btn-delete {
+    background: transparent;
+    border: 1px solid rgba(239,68,68,0.3);
+    color: rgba(239,68,68,0.7);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-delete:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* ─── ADD MISSION ─── */
+  .btn-add {
+    width: 100%;
+    background: transparent;
+    border: 1px dashed var(--border2);
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 8px;
+    letter-spacing: 0.08em;
+  }
+  .btn-add:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ─── TOAST ─── */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 999;
+  }
+  .toast {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    animation: slideIn 0.2s ease;
+    max-width: 320px;
+  }
+  .toast.success { border-color: rgba(34,197,94,0.4); color: #4ade80; }
+  .toast.error { border-color: rgba(239,68,68,0.4); color: #f87171; }
+  @keyframes slideIn { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform: translateX(0); } }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(0,212,255,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── UNIX CONVERTER PANEL ─── */
+  #unix-toggle {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 200;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    padding: 10px 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s, border-color 0.15s;
+    writing-mode: horizontal-tb;
+  }
+  #unix-toggle:hover { background: var(--surface); border-color: var(--accent); }
+  #unix-toggle .toggle-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+  }
+  #unix-toggle .toggle-icon {
+    font-size: 14px;
+    color: var(--accent);
+  }
+
+  #unix-panel {
+    position: fixed;
+    right: -340px;
+    top: 56px;
+    bottom: 0;
+    width: 320px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 150;
+    overflow-y: auto;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  #unix-panel.open { right: 0; }
+
+  .unix-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .unix-panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .unix-panel-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .unix-close {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.15s;
+    line-height: 1;
+  }
+  .unix-close:hover { color: var(--text); }
+
+  .unix-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0;
+  }
+
+  /* Date → Unix section */
+  .unix-section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .unix-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .unix-field label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .unix-field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .unix-field input:focus { border-color: var(--accent); }
+
+  .unix-result-box {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 4px;
+  }
+  .unix-result-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .unix-result-row:last-child { margin-bottom: 0; }
+  .unix-result-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .unix-result-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 2px 6px;
+    transition: background 0.15s;
+    user-select: all;
+  }
+  .unix-result-value:hover { background: rgba(0,212,255,0.08); }
+  .unix-result-value.copied { color: var(--success); }
+
+  /* Unix → Date section */
+  .unix-reverse-result {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.7;
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    min-height: 52px;
+  }
+  .unix-reverse-result .rev-muted { color: var(--muted); font-size: 11px; }
+
+  .unix-now-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+    margin-top: 4px;
+    letter-spacing: 0.06em;
+  }
+  .unix-now-btn:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ─── LOGIN SCREEN ─── -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">B16 SET Corp</div>
+    <div class="login-title">Mission Control<br>Admin</div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="pw-input" placeholder="Enter admin password" autocomplete="current-password">
+    </div>
+    <div class="login-error" id="login-error"></div>
+    <button class="btn-primary" id="login-btn" onclick="doLogin()">Authenticate</button>
+  </div>
+</div>
+
+<!-- ─── APP ─── -->
+<div id="app">
+  <header>
+    <div class="header-brand">B16 SET Corp <span>// ADMIN</span></div>
+    <div class="header-actions">
+      <div class="save-status" id="save-status"></div>
+      <button class="btn-logout" onclick="logout()">Log out</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- Countdown Hold -->
+    <div class="section-header">
+      <div class="section-title">Countdown hold</div>
+    </div>
+    <div class="hold-panel" id="hold-panel">
+      <div class="hold-indicator">
+        <div class="hold-dot" id="hold-dot"></div>
+        <div>
+          <div class="hold-label" id="hold-label">Counting down normally</div>
+          <div class="hold-meta" id="hold-meta"></div>
+        </div>
+      </div>
+      <button class="btn-hold" id="hold-btn" onclick="toggleHold()">Trigger Hold</button>
+      <button class="btn-hold btn-reset" onclick="resetHoldTime()">Reset hold time</button>
+    </div>
+
+    <!-- Missions -->
+    <div class="section-header" style="margin-top:2.5rem">
+      <div class="section-title">Missions</div>
+    </div>
+    <div class="mission-list" id="mission-list"></div>
+    <button class="btn-add" onclick="addMission()">+ Add new mission</button>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ─── UNIX TIME CONVERTER ─── -->
+<button id="unix-toggle" onclick="toggleUnixPanel()" title="Unix Time Converter">
+  <span class="toggle-icon">⏱</span>
+  <span class="toggle-label">Unix</span>
+</button>
+
+<div id="unix-panel">
+  <div class="unix-panel-header">
+    <div class="unix-panel-title">Unix Converter</div>
+    <button class="unix-close" onclick="toggleUnixPanel()">✕</button>
+  </div>
+
+  <hr class="unix-divider">
+
+  <!-- Date → Unix -->
+  <div>
+    <div class="unix-section-label">Date → Unix timestamp</div>
+    <div class="unix-field">
+      <label>Date &amp; time (local)</label>
+      <input type="datetime-local" id="unix-dt-input" oninput="convertToUnix()">
+    </div>
+    <button class="unix-now-btn" onclick="setUnixNow()">↺ Use current time</button>
+
+    <div class="unix-result-box" id="unix-result-box" style="display:none">
+      <div class="unix-result-row">
+        <span class="unix-result-label">ms epoch</span>
+        <span class="unix-result-value" id="unix-ms" onclick="copyUnix('unix-ms')" title="Click to copy">—</span>
+      </div>
+      <div class="unix-result-row">
+        <span class="unix-result-label">s epoch</span>
+        <span class="unix-result-value" id="unix-s" onclick="copyUnix('unix-s')" title="Click to copy">—</span>
+      </div>
+      <div class="unix-result-row">
+        <span class="unix-result-label">UTC</span>
+        <span class="unix-result-value" id="unix-utc" style="font-size:11px;cursor:default" title="UTC string">—</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="unix-divider">
+
+  <!-- Unix → Date -->
+  <div>
+    <div class="unix-section-label">Unix timestamp → Date</div>
+    <div class="unix-field">
+      <label>Epoch (ms or s)</label>
+      <input type="number" id="unix-epoch-input" placeholder="e.g. 1750000000000" oninput="convertFromUnix()">
+    </div>
+    <div class="unix-reverse-result" id="unix-rev-result">
+      <span class="rev-muted">Enter a timestamp above…</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// CONFIG — update these before deploying
+// ══════════════════════════════════════════════
+const WORKER_URL = 'https://b16-admin-worker.b16setc.workers.dev';
+// The worker handles auth + Firebase writes.
+// The password is NEVER stored here.
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let authToken = null; // session password (held in memory only)
+let appData = null;   // full Firebase snapshot
+let expandedCard = null;
+
+// ══════════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════════
+document.getElementById('pw-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+async function doLogin() {
+  const pw = document.getElementById('pw-input').value.trim();
+  if (!pw) return;
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-error');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Authenticating...';
+  err.textContent = '';
+  try {
+    const res = await workerRequest('GET', '/data', null, pw);
+    if (res.ok) {
+      authToken = pw;
+      appData = await res.json();
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      renderAll();
+    } else {
+      err.textContent = res.status === 401 ? 'Wrong password.' : 'Connection error. Check Worker URL.';
+    }
+  } catch(e) {
+    err.textContent = 'Could not reach server. Is the Worker URL set?';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Authenticate';
+}
+
+function logout() {
+  authToken = null;
+  appData = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('pw-input').value = '';
+}
+
+// ══════════════════════════════════════════════
+// WORKER REQUESTS
+// ══════════════════════════════════════════════
+async function workerRequest(method, path, body, pw) {
+  return fetch(WORKER_URL + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Password': pw || authToken,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
+async function save(path, data) {
+  const status = document.getElementById('save-status');
+  status.textContent = '↑ saving...';
+  status.className = 'save-status saving';
+  try {
+    const res = await workerRequest('PATCH', path, data);
+    if (res.ok) {
+      status.textContent = '✓ saved';
+      status.className = 'save-status saved';
+      setTimeout(() => { status.textContent = ''; status.className = 'save-status'; }, 2500);
+      toast('Saved', 'success');
+    } else {
+      throw new Error(res.status);
+    }
+  } catch(e) {
+    status.textContent = '✗ save failed';
+    status.className = 'save-status error';
+    toast('Save failed: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════
+function renderAll() {
+  renderHold();
+  renderMissions();
+}
+
+function renderHold() {
+  const hold = appData['countdown-hold'];
+  const dot = document.getElementById('hold-dot');
+  const label = document.getElementById('hold-label');
+  const meta = document.getElementById('hold-meta');
+  const btn = document.getElementById('hold-btn');
+  if (hold.isHeld) {
+    dot.classList.add('held');
+    label.textContent = 'HOLD active';
+    const since = hold.holdStartTime ? new Date(hold.holdStartTime).toLocaleTimeString() : '—';
+    const total = hold.totalHoldDuration ? Math.round(hold.totalHoldDuration / 1000) + 's accumulated' : '';
+    meta.textContent = 'Held since ' + since + (total ? ' · ' + total : '');
+    btn.textContent = 'Resume countdown';
+    btn.classList.add('btn-resume');
+  } else {
+    dot.classList.remove('held');
+    label.textContent = 'Counting down normally';
+    meta.textContent = hold.totalHoldDuration
+      ? Math.round(hold.totalHoldDuration / 1000) + 's total hold time this session'
+      : 'No holds triggered';
+    btn.textContent = 'Trigger Hold';
+    btn.classList.remove('btn-resume');
+  }
+}
+
+function renderMissions() {
+  const list = document.getElementById('mission-list');
+  const missions = Object.entries(appData.missions || {})
+    .sort(([,a],[,b]) => (a.order||99) - (b.order||99));
+  list.innerHTML = '';
+  for (const [key, m] of missions) {
+    list.appendChild(makeMissionCard(key, m));
+  }
+}
+
+function makeMissionCard(key, m) {
+  const card = document.createElement('div');
+  card.className = 'mission-card' + (expandedCard === key ? ' expanded' : '');
+  card.dataset.key = key;
+
+  const statusClass = 'status-' + (m.status || 'upcoming');
+  const statusLabel = (m.status || 'upcoming').replace('-', ' ');
+
+  card.innerHTML = `
+    <div class="mission-row" onclick="toggleCard('${key}')">
+      <div class="mission-order">#${m.order || '?'}</div>
+      <div class="mission-name-col">
+        <div class="mission-name">${esc(m.name || 'Untitled')}</div>
+        <div class="mission-date">${esc(m.dateDisplay || '')}</div>
+      </div>
+      <span class="status-badge ${statusClass}">${statusLabel}</span>
+      <div class="mission-chevron">▾</div>
+    </div>
+    <div class="mission-form">
+      <div class="form-grid">
+        <div class="field">
+          <label>Mission name</label>
+          <input type="text" data-field="name" value="${esc(m.name||'')}">
+        </div>
+        <div class="field">
+          <label>Order</label>
+          <input type="number" data-field="order" value="${m.order||''}">
+        </div>
+        <div class="field">
+          <label>Date display</label>
+          <input type="text" data-field="dateDisplay" value="${esc(m.dateDisplay||'')}">
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select data-field="status">
+            ${['upcoming','success','failure','partial-success'].map(s =>
+              `<option value="${s}" ${m.status===s?'selected':''}>${s}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div class="field full">
+          <label>Description</label>
+          <textarea data-field="description">${esc(m.description||'')}</textarea>
+        </div>
+        <div class="field">
+          <label>Watch URL</label>
+          <input type="text" data-field="watchUrl" value="${esc(m.watchUrl||'')}">
+        </div>
+        <div class="field">
+          <label>Watch label</label>
+          <input type="text" data-field="watchLabel" value="${esc(m.watchLabel||'')}">
+        </div>
+        <div class="field">
+          <label>Launch timestamp (ms epoch)</label>
+          <input type="number" data-field="launchTimestamp" value="${m.launchTimestamp||''}">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-delete" onclick="deleteMission('${key}')">Delete mission</button>
+        <button class="btn-save" onclick="saveMission('${key}')">Save changes</button>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+// ══════════════════════════════════════════════
+// INTERACTIONS
+// ══════════════════════════════════════════════
+function toggleCard(key) {
+  expandedCard = expandedCard === key ? null : key;
+  renderMissions();
+}
+
+async function toggleHold() {
+  const hold = appData['countdown-hold'];
+  const now = Date.now();
+  if (!hold.isHeld) {
+    hold.isHeld = true;
+    hold.holdStartTime = now;
+    hold.timeAtHold = hold.timeAtHold || null;
+  } else {
+    const elapsed = now - (hold.holdStartTime || now);
+    hold.totalHoldDuration = (hold.totalHoldDuration || 0) + elapsed;
+    hold.isHeld = false;
+    hold.holdStartTime = null;
+  }
+  renderHold();
+  await save('/data/countdown-hold', hold);
+}
+
+async function resetHoldTime() {
+  if (!confirm('Reset accumulated hold time to zero?')) return;
+  const hold = appData['countdown-hold'];
+  hold.totalHoldDuration = 0;
+  // If currently held, also reset the start time so it counts from now
+  if (hold.isHeld) hold.holdStartTime = Date.now();
+  renderHold();
+  await save('/data/countdown-hold', hold);
+}
+
+async function saveMission(key) {
+  const card = document.querySelector(`.mission-card[data-key="${key}"]`);
+  const updated = { ...appData.missions[key] };
+  card.querySelectorAll('[data-field]').forEach(el => {
+    const f = el.dataset.field;
+    if (el.type === 'number') {
+      updated[f] = el.value === '' ? null : Number(el.value);
+    } else {
+      updated[f] = el.value;
+    }
+  });
+  appData.missions[key] = updated;
+  await save(`/data/missions/${key}`, updated);
+  renderMissions();
+}
+
+async function deleteMission(key) {
+  if (!confirm(`Delete mission "${appData.missions[key]?.name || key}"? This cannot be undone.`)) return;
+  delete appData.missions[key];
+  const res = await workerRequest('DELETE', `/data/missions/${key}`);
+  if (res.ok) {
+    toast('Mission deleted', 'success');
+    expandedCard = null;
+    renderMissions();
+  } else {
+    toast('Delete failed', 'error');
+  }
+}
+
+function addMission() {
+  const keys = Object.keys(appData.missions || {});
+  const nextNum = keys.length + 1;
+  const newKey = 'mission_' + String(nextNum).padStart(2, '0');
+  const maxOrder = Math.max(0, ...Object.values(appData.missions || {}).map(m => m.order || 0));
+  appData.missions[newKey] = {
+    order: maxOrder + 1,
+    name: 'New Mission',
+    dateDisplay: '',
+    status: 'upcoming',
+    launchTimestamp: null,
+    description: '',
+    watchUrl: 'https://www.twitch.tv/boostersixteensetcorp',
+    watchLabel: 'Twitch channel',
+  };
+  expandedCard = newKey;
+  renderMissions();
+  document.querySelector(`.mission-card[data-key="${newKey}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ══════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ══════════════════════════════════════════════
+// UNIX TIME CONVERTER
+// ══════════════════════════════════════════════
+function toggleUnixPanel() {
+  const panel = document.getElementById('unix-panel');
+  const toggle = document.getElementById('unix-toggle');
+  const isOpen = panel.classList.toggle('open');
+  toggle.style.right = isOpen ? '320px' : '0';
+}
+
+function setUnixNow() {
+  const now = new Date();
+  // datetime-local format: YYYY-MM-DDTHH:MM
+  const pad = n => String(n).padStart(2, '0');
+  const local = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  document.getElementById('unix-dt-input').value = local;
+  convertToUnix();
+}
+
+function convertToUnix() {
+  const val = document.getElementById('unix-dt-input').value;
+  const box = document.getElementById('unix-result-box');
+  if (!val) { box.style.display = 'none'; return; }
+  const d = new Date(val);
+  if (isNaN(d)) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  document.getElementById('unix-ms').textContent = d.getTime();
+  document.getElementById('unix-s').textContent = Math.floor(d.getTime() / 1000);
+  document.getElementById('unix-utc').textContent = d.toUTCString();
+}
+
+function convertFromUnix() {
+  const raw = document.getElementById('unix-epoch-input').value.trim();
+  const out = document.getElementById('unix-rev-result');
+  if (!raw) { out.innerHTML = '<span class="rev-muted">Enter a timestamp above…</span>'; return; }
+  let ms = Number(raw);
+  if (isNaN(ms)) { out.innerHTML = '<span class="rev-muted" style="color:var(--danger)">Invalid number</span>'; return; }
+  // Auto-detect seconds vs ms (s timestamps are < 1e12)
+  if (ms < 1e12) ms = ms * 1000;
+  const d = new Date(ms);
+  if (isNaN(d)) { out.innerHTML = '<span class="rev-muted" style="color:var(--danger)">Invalid timestamp</span>'; return; }
+  const pad = n => String(n).padStart(2, '0');
+  const localStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  out.innerHTML = `
+    <div>${localStr} <span class="rev-muted">(local)</span></div>
+    <div style="margin-top:4px">${d.toUTCString()}</div>
+  `;
+}
+
+function copyUnix(id) {
+  const el = document.getElementById(id);
+  const text = el.textContent;
+  if (!text || text === '—') return;
+  navigator.clipboard.writeText(text).then(() => {
+    el.classList.add('copied');
+    const orig = el.textContent;
+    el.textContent = '✓ copied';
+    setTimeout(() => { el.textContent = orig; el.classList.remove('copied'); }, 1200);
+  });
+}
+</script>
+</body>
+</html>
