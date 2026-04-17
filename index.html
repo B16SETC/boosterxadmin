@@ -1177,19 +1177,13 @@ async function deleteMission(key) {
 }
 
 async function addMission() {
-  const keys = Object.keys(appData.missions || {});
-  const nextNum = keys.length + 1;
-  const newKey = 'mission_' + String(nextNum).padStart(2, '0');
+  const newKey = 'mission_' + Date.now();
 
-  // Bump every existing mission's order by 1 so new mission can take #1
-  const bumps = Object.entries(appData.missions || {}).map(async ([k, m]) => {
-    m.order = (m.order || 1) + 1;
-    await save(`/data/missions/${k}`, m);
-  });
-  await Promise.all(bumps);
+  const existingOrders = Object.values(appData.missions || {}).map(m => m.order || 0);
+  const nextOrder = existingOrders.length ? Math.max(...existingOrders) + 1 : 1;
 
   const newMission = {
-    order: 1,
+    order: nextOrder,
     name: 'New Mission',
     dateDisplay: '',
     status: 'upcoming',
@@ -1198,11 +1192,13 @@ async function addMission() {
     watchUrl: 'https://www.twitch.tv/boostersixteensetcorp',
     watchLabel: 'Twitch channel',
   };
+
   appData.missions[newKey] = newMission;
   await save(`/data/missions/${newKey}`, newMission);
   expandedCard = newKey;
   renderMissions();
-  document.querySelector(`.mission-card[data-key="${newKey}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.querySelector(`.mission-card[data-key="${newKey}"]`)
+    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // ══════════════════════════════════════════════
