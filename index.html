@@ -708,8 +708,8 @@
     <div class="section-header" style="margin-top:2.5rem">
       <div class="section-title">Missions</div>
     </div>
-    <div class="mission-list" id="mission-list"></div>
     <button class="btn-add" onclick="addMission()">+ Add new mission</button>
+    <div class="mission-list" id="mission-list"></div>
   </div>
 </div>
 
@@ -963,7 +963,7 @@ function renderHold() {
 function renderMissions() {
   const list = document.getElementById('mission-list');
   const missions = Object.entries(appData.missions || {})
-    .sort(([,a],[,b]) => (b.order||0) - (a.order||0));
+    .sort(([,a],[,b]) => (a.order||0) - (b.order||0));
   list.innerHTML = '';
   for (const [key, m] of missions) {
     list.appendChild(makeMissionCard(key, m));
@@ -974,7 +974,7 @@ function renderMissions() {
 function renderMissionsSmart() {
   const list = document.getElementById('mission-list');
   const missions = Object.entries(appData.missions || {})
-    .sort(([,a],[,b]) => (b.order||0) - (a.order||0));
+    .sort(([,a],[,b]) => (a.order||0) - (b.order||0));
 
   // Track which keys are already rendered
   const renderedKeys = new Set([...list.querySelectorAll('.mission-card')].map(c => c.dataset.key));
@@ -1180,9 +1180,9 @@ async function addMission() {
   const keys = Object.keys(appData.missions || {});
   const nextNum = keys.length + 1;
   const newKey = 'mission_' + String(nextNum).padStart(2, '0');
-  const maxOrder = Math.max(0, ...Object.values(appData.missions || {}).map(m => m.order || 0));
+  const minOrder = Math.min(0, ...Object.values(appData.missions || {}).map(m => m.order || 0));
   const newMission = {
-    order: maxOrder + 1,
+    order: minOrder - 1,
     name: 'New Mission',
     dateDisplay: '',
     status: 'upcoming',
