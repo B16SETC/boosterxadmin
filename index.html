@@ -157,6 +157,8 @@
     font-size: 11px;
     color: var(--muted);
     white-space: nowrap;
+    cursor: default;
+    position: relative;
   }
   .presence-dot {
     width: 6px; height: 6px;
@@ -663,6 +665,10 @@
   <div class="login-box">
     <div class="login-logo">B16 SET Corp</div>
     <div class="login-title">Mission Control<br>Admin</div>
+    <div class="field" style="margin-bottom: 12px;">
+      <label>Username</label>
+      <input type="text" id="un-input" placeholder="Enter your name" autocomplete="username">
+    </div>
     <div class="field">
       <label>Password</label>
       <input type="password" id="pw-input" placeholder="Enter admin password" autocomplete="current-password">
@@ -677,7 +683,7 @@
   <header>
     <div class="header-brand">B16 SET Corp <span>// ADMIN</span></div>
     <div class="header-actions">
-      <div class="presence-badge" id="presence-badge" title="Active editors">
+      <div class="presence-badge" id="presence-badge" title="">
         <div class="presence-dot" id="presence-dot"></div>
         <span id="presence-count" class="presence-count">—</span>
         <span>editing</span>
@@ -774,39 +780,48 @@
 // CONFIG — update these before deploying
 // ══════════════════════════════════════════════
 const WORKER_URL = 'https://b16-admin-worker.b16setc.workers.dev';
-// The worker handles auth + Firebase writes.
-// The password is NEVER stored here.
 
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
-let authToken = null; // session password (held in memory only)
-let appData = null;   // full Firebase snapshot
+let authToken = null;
+let username = null;
+let appData = null;
 let expandedCard = null;
-let sessionId = null; // unique ID for this browser tab
+let sessionId = null;
 let pollInterval = null;
 let heartbeatInterval = null;
-const debounceTimers = {}; // key → setTimeout handle for auto-save
+const debounceTimers = {};
 
 // ══════════════════════════════════════════════
 // LOGIN
 // ══════════════════════════════════════════════
+document.getElementById('un-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('pw-input').focus();
+});
+
 document.getElementById('pw-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') doLogin();
 });
 
 async function doLogin() {
+  const un = document.getElementById('un-input').value.trim();
   const pw = document.getElementById('pw-input').value.trim();
-  if (!pw) return;
-  const btn = document.getElementById('login-btn');
   const err = document.getElementById('login-error');
+
+  if (!un) { err.textContent = 'Please enter a username.'; return; }
+  if (!pw) { err.textContent = 'Please enter a password.'; return; }
+
+  const btn = document.getElementById('login-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Authenticating...';
   err.textContent = '';
+
   try {
     const res = await workerRequest('GET', '/data', null, pw);
     if (res.ok) {
       authToken = pw;
+      username = un;
       appData = await res.json();
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('app').style.display = 'block';
@@ -820,6 +835,7 @@ async function doLogin() {
   } catch(e) {
     err.textContent = 'Could not reach server. Is the Worker URL set?';
   }
+
   btn.disabled = false;
   btn.textContent = 'Authenticate';
 }
@@ -827,16 +843,17 @@ async function doLogin() {
 function logout() {
   stopPolling();
   stopHeartbeat();
-  // Remove our presence entry
   if (sessionId) {
     workerRequest('DELETE', `/data/presence/${sessionId}`).catch(() => {});
     sessionId = null;
   }
   authToken = null;
+  username = null;
   appData = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('pw-input').value = '';
+  document.getElementById('un-input').value = '';
 }
 
 // ══════════════════════════════════════════════
@@ -875,7 +892,7 @@ async function save(path, data) {
 }
 
 // ══════════════════════════════════════════════
-// LIVE POLLING — syncs data from server every 5s
+// LIVE POLLING
 // ══════════════════════════════════════════════
 function startPolling() {
   pollInterval = setInterval(async () => {
@@ -886,10 +903,9 @@ function startPolling() {
         appData = fresh;
         renderHold();
         renderPresence();
-        // Re-render missions but skip any card the user is actively editing
         renderMissionsSmart();
       }
-    } catch(e) { /* silent — save-status already shows errors */ }
+    } catch(e) {}
   }, 1000);
 }
 
@@ -898,10 +914,10 @@ function stopPolling() {
 }
 
 // ══════════════════════════════════════════════
-// PRESENCE — heartbeat every 15s, expire > 30s
+// PRESENCE
 // ══════════════════════════════════════════════
 function startHeartbeat() {
-  sendHeartbeat(); // immediate first beat
+  sendHeartbeat();
   heartbeatInterval = setInterval(sendHeartbeat, 1000);
 }
 
@@ -912,23 +928,31 @@ function stopHeartbeat() {
 async function sendHeartbeat() {
   if (!sessionId || !authToken) return;
   try {
-    await workerRequest('PATCH', `/data/presence/${sessionId}`, { ts: Date.now() });
-  } catch(e) { /* silent */ }
+    await workerRequest('PATCH', `/data/presence/${sessionId}`, { ts: Date.now(), name: username });
+  } catch(e) {}
 }
 
 function renderPresence() {
   const presence = appData?.presence || {};
   const now = Date.now();
-  const TIMEOUT_MS = 2000; // 35s — 2 missed heartbeats + buffer
+  const TIMEOUT_MS = 2000;
   const active = Object.values(presence).filter(p => p?.ts && (now - p.ts) < TIMEOUT_MS);
   const count = active.length;
+
   const dot = document.getElementById('presence-dot');
   const label = document.getElementById('presence-count');
+  const badge = document.getElementById('presence-badge');
+
   dot.classList.toggle('active', count > 0);
   label.textContent = count === 1 ? '1 person' : `${count} people`;
+
+  const names = active.map(p => p.name || 'Anonymous').join(', ');
+  badge.title = count > 0 ? `Editing: ${names}` : 'Nobody else editing';
 }
 
-
+// ══════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════
 function renderAll() {
   renderHold();
   renderMissions();
@@ -970,36 +994,27 @@ function renderMissions() {
   }
 }
 
-// Poll-safe render: only rebuild cards that aren't being actively edited
 function renderMissionsSmart() {
   const list = document.getElementById('mission-list');
   const missions = Object.entries(appData.missions || {})
     .sort(([,a],[,b]) => (a.order||0) - (b.order||0));
 
-  // Track which keys are already rendered
-  const renderedKeys = new Set([...list.querySelectorAll('.mission-card')].map(c => c.dataset.key));
   const freshKeys = new Set(missions.map(([k]) => k));
 
-  // Remove cards that no longer exist on server
   for (const el of list.querySelectorAll('.mission-card')) {
     if (!freshKeys.has(el.dataset.key)) el.remove();
   }
 
-  // Update or insert each card
   missions.forEach(([key, m], idx) => {
     const existing = list.querySelector(`.mission-card[data-key="${key}"]`);
     const isEditing = existing && existing.classList.contains('expanded') && document.activeElement?.closest(`.mission-card[data-key="${key}"]`);
 
-    if (isEditing) {
-      // User is actively typing — update appData quietly but don't re-render this card
-      return;
-    }
+    if (isEditing) return;
 
     const newCard = makeMissionCard(key, m);
     if (existing) {
       list.replaceChild(newCard, existing);
     } else {
-      // Insert in sorted position
       const allCards = [...list.querySelectorAll('.mission-card')];
       const after = allCards[idx];
       if (after) list.insertBefore(newCard, after);
@@ -1071,7 +1086,7 @@ function makeMissionCard(key, m) {
       </div>
     </div>
   `;
-  // Auto-save on field change (debounced 800ms)
+
   card.querySelectorAll('[data-field]').forEach(el => {
     const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
     el.addEventListener(eventType, () => scheduleAutoSave(key, card));
@@ -1081,7 +1096,7 @@ function makeMissionCard(key, m) {
 }
 
 // ══════════════════════════════════════════════
-// AUTO-SAVE (debounced field edits)
+// AUTO-SAVE
 // ══════════════════════════════════════════════
 function scheduleAutoSave(key, card) {
   clearTimeout(debounceTimers[key]);
@@ -1089,7 +1104,6 @@ function scheduleAutoSave(key, card) {
 }
 
 async function autoSaveMission(key, card) {
-  // Card may have been removed from DOM by the time debounce fires
   if (!card.isConnected || !appData.missions[key]) return;
   const updated = { ...appData.missions[key] };
   card.querySelectorAll('[data-field]').forEach(el => {
@@ -1102,7 +1116,6 @@ async function autoSaveMission(key, card) {
   });
   appData.missions[key] = updated;
   await save(`/data/missions/${key}`, updated);
-  // Refresh collapsed row display (name, date, status badge) without touching the form
   const row = card.querySelector('.mission-row');
   if (row) {
     row.querySelector('.mission-name').textContent = updated.name || 'Untitled';
@@ -1115,9 +1128,78 @@ async function autoSaveMission(key, card) {
 }
 
 // ══════════════════════════════════════════════
+// MISSIONS
+// ══════════════════════════════════════════════
 function toggleCard(key) {
   expandedCard = expandedCard === key ? null : key;
   renderMissions();
+}
+
+async function addMission() {
+  const newKey = 'mission_' + Date.now();
+
+  // Bump all existing missions' order by 1
+  for (const [k, m] of Object.entries(appData.missions || {})) {
+    m.order = (m.order || 1) + 1;
+    await save(`/data/missions/${k}`, m);
+  }
+
+  const newMission = {
+    order: 1,
+    name: 'New Mission',
+    dateDisplay: '',
+    status: 'upcoming',
+    launchTimestamp: null,
+    description: '',
+    watchUrl: 'https://www.twitch.tv/boostersixteensetcorp',
+    watchLabel: 'Twitch channel',
+  };
+
+  appData.missions[newKey] = newMission;
+  await save(`/data/missions/${newKey}`, newMission);
+  expandedCard = newKey;
+  renderMissions();
+  document.querySelector(`.mission-card[data-key="${newKey}"]`)
+    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function saveMission(key) {
+  const card = document.querySelector(`.mission-card[data-key="${key}"]`);
+  const updated = { ...appData.missions[key] };
+  card.querySelectorAll('[data-field]').forEach(el => {
+    const f = el.dataset.field;
+    if (el.type === 'number') {
+      updated[f] = el.value === '' ? null : Number(el.value);
+    } else {
+      updated[f] = el.value;
+    }
+  });
+  appData.missions[key] = updated;
+  await save(`/data/missions/${key}`, updated);
+  renderMissions();
+}
+
+async function deleteMission(key) {
+  if (!confirm(`Delete mission "${appData.missions[key]?.name || key}"? This cannot be undone.`)) return;
+
+  const deletedOrder = appData.missions[key]?.order || 0;
+  delete appData.missions[key];
+
+  const res = await workerRequest('DELETE', `/data/missions/${key}`);
+  if (res.ok) {
+    // Decrement all missions that were ranked below the deleted one
+    for (const [k, m] of Object.entries(appData.missions)) {
+      if ((m.order || 0) > deletedOrder) {
+        m.order = m.order - 1;
+        await save(`/data/missions/${k}`, m);
+      }
+    }
+    toast('Mission deleted', 'success');
+    expandedCard = null;
+    renderMissions();
+  } else {
+    toast('Delete failed', 'error');
+  }
 }
 
 async function toggleHold() {
@@ -1141,64 +1223,9 @@ async function resetHoldTime() {
   if (!confirm('Reset accumulated hold time to zero?')) return;
   const hold = appData['countdown-hold'];
   hold.totalHoldDuration = 0;
-  // If currently held, also reset the start time so it counts from now
   if (hold.isHeld) hold.holdStartTime = Date.now();
   renderHold();
   await save('/data/countdown-hold', hold);
-}
-
-async function saveMission(key) {
-  const card = document.querySelector(`.mission-card[data-key="${key}"]`);
-  const updated = { ...appData.missions[key] };
-  card.querySelectorAll('[data-field]').forEach(el => {
-    const f = el.dataset.field;
-    if (el.type === 'number') {
-      updated[f] = el.value === '' ? null : Number(el.value);
-    } else {
-      updated[f] = el.value;
-    }
-  });
-  appData.missions[key] = updated;
-  await save(`/data/missions/${key}`, updated);
-  renderMissions();
-}
-
-async function deleteMission(key) {
-  if (!confirm(`Delete mission "${appData.missions[key]?.name || key}"? This cannot be undone.`)) return;
-  delete appData.missions[key];
-  const res = await workerRequest('DELETE', `/data/missions/${key}`);
-  if (res.ok) {
-    toast('Mission deleted', 'success');
-    expandedCard = null;
-    renderMissions();
-  } else {
-    toast('Delete failed', 'error');
-  }
-}
-
-async function addMission() {
-  const newKey = 'mission_' + Date.now();
-
-  const existingOrders = Object.values(appData.missions || {}).map(m => m.order || 0);
-  const nextOrder = existingOrders.length ? Math.max(...existingOrders) + 1 : 1;
-
-  const newMission = {
-    order: nextOrder,
-    name: 'New Mission',
-    dateDisplay: '',
-    status: 'upcoming',
-    launchTimestamp: null,
-    description: '',
-    watchUrl: 'https://www.twitch.tv/boostersixteensetcorp',
-    watchLabel: 'Twitch channel',
-  };
-
-  appData.missions[newKey] = newMission;
-  await save(`/data/missions/${newKey}`, newMission);
-  expandedCard = newKey;
-  renderMissions();
-  document.querySelector(`.mission-card[data-key="${newKey}"]`)
-    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // ══════════════════════════════════════════════
@@ -1206,6 +1233,15 @@ async function addMission() {
 // ══════════════════════════════════════════════
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toast(msg, type = '') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
 }
 
 // ══════════════════════════════════════════════
@@ -1220,7 +1256,6 @@ function toggleUnixPanel() {
 
 function setUnixNow() {
   const now = new Date();
-  // datetime-local format: YYYY-MM-DDTHH:MM
   const pad = n => String(n).padStart(2, '0');
   const local = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
   document.getElementById('unix-dt-input').value = local;
@@ -1245,7 +1280,6 @@ function convertFromUnix() {
   if (!raw) { out.innerHTML = '<span class="rev-muted">Enter a timestamp above…</span>'; return; }
   let ms = Number(raw);
   if (isNaN(ms)) { out.innerHTML = '<span class="rev-muted" style="color:var(--danger)">Invalid number</span>'; return; }
-  // Auto-detect seconds vs ms (s timestamps are < 1e12)
   if (ms < 1e12) ms = ms * 1000;
   const d = new Date(ms);
   if (isNaN(d)) { out.innerHTML = '<span class="rev-muted" style="color:var(--danger)">Invalid timestamp</span>'; return; }
