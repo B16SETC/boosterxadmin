@@ -786,6 +786,7 @@ let expandedCard = null;
 let sessionId = null; // unique ID for this browser tab
 let pollInterval = null;
 let heartbeatInterval = null;
+const debounceTimers = {}; // key → setTimeout handle for auto-save
 
 // ══════════════════════════════════════════════
 // LOGIN
@@ -882,9 +883,11 @@ function startPolling() {
       const res = await workerRequest('GET', '/data');
       if (res.ok) {
         const fresh = await res.json();
-        // Merge without clobbering any card the user has open/editing
         appData = fresh;
-        renderAll();
+        renderHold();
+        renderPresence();
+        // Re-render missions but skip any card the user is actively editing
+        renderMissionsSmart();
       }
     } catch(e) { /* silent — save-status already shows errors */ }
   }, 1000);
@@ -967,6 +970,44 @@ function renderMissions() {
   }
 }
 
+// Poll-safe render: only rebuild cards that aren't being actively edited
+function renderMissionsSmart() {
+  const list = document.getElementById('mission-list');
+  const missions = Object.entries(appData.missions || {})
+    .sort(([,a],[,b]) => (b.order||0) - (a.order||0));
+
+  // Track which keys are already rendered
+  const renderedKeys = new Set([...list.querySelectorAll('.mission-card')].map(c => c.dataset.key));
+  const freshKeys = new Set(missions.map(([k]) => k));
+
+  // Remove cards that no longer exist on server
+  for (const el of list.querySelectorAll('.mission-card')) {
+    if (!freshKeys.has(el.dataset.key)) el.remove();
+  }
+
+  // Update or insert each card
+  missions.forEach(([key, m], idx) => {
+    const existing = list.querySelector(`.mission-card[data-key="${key}"]`);
+    const isEditing = existing && existing.classList.contains('expanded') && document.activeElement?.closest(`.mission-card[data-key="${key}"]`);
+
+    if (isEditing) {
+      // User is actively typing — update appData quietly but don't re-render this card
+      return;
+    }
+
+    const newCard = makeMissionCard(key, m);
+    if (existing) {
+      list.replaceChild(newCard, existing);
+    } else {
+      // Insert in sorted position
+      const allCards = [...list.querySelectorAll('.mission-card')];
+      const after = allCards[idx];
+      if (after) list.insertBefore(newCard, after);
+      else list.appendChild(newCard);
+    }
+  });
+}
+
 function makeMissionCard(key, m) {
   const card = document.createElement('div');
   card.className = 'mission-card' + (expandedCard === key ? ' expanded' : '');
@@ -1030,11 +1071,49 @@ function makeMissionCard(key, m) {
       </div>
     </div>
   `;
+  // Auto-save on field change (debounced 800ms)
+  card.querySelectorAll('[data-field]').forEach(el => {
+    const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
+    el.addEventListener(eventType, () => scheduleAutoSave(key, card));
+  });
+
   return card;
 }
 
 // ══════════════════════════════════════════════
-// INTERACTIONS
+// AUTO-SAVE (debounced field edits)
+// ══════════════════════════════════════════════
+function scheduleAutoSave(key, card) {
+  clearTimeout(debounceTimers[key]);
+  debounceTimers[key] = setTimeout(() => autoSaveMission(key, card), 800);
+}
+
+async function autoSaveMission(key, card) {
+  // Card may have been removed from DOM by the time debounce fires
+  if (!card.isConnected || !appData.missions[key]) return;
+  const updated = { ...appData.missions[key] };
+  card.querySelectorAll('[data-field]').forEach(el => {
+    const f = el.dataset.field;
+    if (el.type === 'number') {
+      updated[f] = el.value === '' ? null : Number(el.value);
+    } else {
+      updated[f] = el.value;
+    }
+  });
+  appData.missions[key] = updated;
+  await save(`/data/missions/${key}`, updated);
+  // Refresh collapsed row display (name, date, status badge) without touching the form
+  const row = card.querySelector('.mission-row');
+  if (row) {
+    row.querySelector('.mission-name').textContent = updated.name || 'Untitled';
+    row.querySelector('.mission-date').textContent = updated.dateDisplay || '';
+    const badge = row.querySelector('.status-badge');
+    badge.className = 'status-badge status-' + (updated.status || 'upcoming');
+    badge.textContent = (updated.status || 'upcoming').replace('-', ' ');
+    row.querySelector('.mission-order').textContent = '#' + (updated.order || '?');
+  }
+}
+
 // ══════════════════════════════════════════════
 function toggleCard(key) {
   expandedCard = expandedCard === key ? null : key;
@@ -1113,7 +1192,7 @@ async function addMission() {
     watchLabel: 'Twitch channel',
   };
   appData.missions[newKey] = newMission;
-  await save(`/data/missions/${newKey}`, newMission); // ← ADD THIS
+  await save(`/data/missions/${newKey}`, newMission);
   expandedCard = newKey;
   renderMissions();
   document.querySelector(`.mission-card[data-key="${newKey}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
