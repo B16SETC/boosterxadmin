@@ -1180,9 +1180,16 @@ async function addMission() {
   const keys = Object.keys(appData.missions || {});
   const nextNum = keys.length + 1;
   const newKey = 'mission_' + String(nextNum).padStart(2, '0');
-  const minOrder = Math.min(0, ...Object.values(appData.missions || {}).map(m => m.order || 0));
+
+  // Bump every existing mission's order by 1 so new mission can take #1
+  const bumps = Object.entries(appData.missions || {}).map(async ([k, m]) => {
+    m.order = (m.order || 1) + 1;
+    await save(`/data/missions/${k}`, m);
+  });
+  await Promise.all(bumps);
+
   const newMission = {
-    order: minOrder - 1,
+    order: 1,
     name: 'New Mission',
     dateDisplay: '',
     status: 'upcoming',
