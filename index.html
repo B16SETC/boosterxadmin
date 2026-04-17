@@ -1097,12 +1097,12 @@ async function deleteMission(key) {
   }
 }
 
-function addMission() {
+async function addMission() {
   const keys = Object.keys(appData.missions || {});
   const nextNum = keys.length + 1;
   const newKey = 'mission_' + String(nextNum).padStart(2, '0');
   const maxOrder = Math.max(0, ...Object.values(appData.missions || {}).map(m => m.order || 0));
-  appData.missions[newKey] = {
+  const newMission = {
     order: maxOrder + 1,
     name: 'New Mission',
     dateDisplay: '',
@@ -1112,6 +1112,8 @@ function addMission() {
     watchUrl: 'https://www.twitch.tv/boostersixteensetcorp',
     watchLabel: 'Twitch channel',
   };
+  appData.missions[newKey] = newMission;
+  await save(`/data/missions/${newKey}`, newMission); // ← ADD THIS
   expandedCard = newKey;
   renderMissions();
   document.querySelector(`.mission-card[data-key="${newKey}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
