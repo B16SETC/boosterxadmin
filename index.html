@@ -221,6 +221,11 @@
     border-radius: 10px;
     padding: 1.25rem 1.5rem;
     display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .hold-top-row {
+    display: flex;
     align-items: center;
     gap: 1.5rem;
     flex-wrap: wrap;
@@ -241,9 +246,9 @@
   .hold-dot.held {
     background: var(--danger);
     box-shadow: 0 0 0 4px rgba(239,68,68,0.15);
-    animation: pulse 1.5s infinite;
+    animation: pulseDot 1.5s infinite;
   }
-  @keyframes pulse {
+  @keyframes pulseDot {
     0%,100% { box-shadow: 0 0 0 4px rgba(239,68,68,0.15); }
     50% { box-shadow: 0 0 0 8px rgba(239,68,68,0.05); }
   }
@@ -256,6 +261,39 @@
     color: var(--muted);
     font-family: var(--mono);
   }
+
+  /* Mission selector row inside hold panel */
+  .hold-mission-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .hold-mission-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .hold-mission-select {
+    flex: 1;
+    min-width: 180px;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .hold-mission-select:focus { border-color: var(--accent); }
+  .hold-mission-select option { background: #1a1f27; }
+
   .btn-hold {
     background: transparent;
     border: 1px solid var(--border2);
@@ -273,6 +311,22 @@
   .btn-hold.btn-resume:hover { border-color: var(--success); color: var(--success); }
   .btn-hold.btn-reset { color: var(--muted); }
   .btn-hold.btn-reset:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* Per-mission hold status pills inside mission cards */
+  .mission-hold-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+    background: rgba(239,68,68,0.12);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,0.25);
+    animation: pulseDot 1.5s infinite;
+  }
 
   /* ─── MISSION LIST ─── */
   .mission-list { display: flex; flex-direction: column; gap: 8px; }
@@ -556,7 +610,6 @@
     margin: 0;
   }
 
-  /* Date → Unix section */
   .unix-section-label {
     font-family: var(--mono);
     font-size: 10px;
@@ -626,7 +679,6 @@
   .unix-result-value:hover { background: rgba(0,212,255,0.08); }
   .unix-result-value.copied { color: var(--success); }
 
-  /* Unix → Date section */
   .unix-reverse-result {
     font-family: var(--mono);
     font-size: 12px;
@@ -698,16 +750,32 @@
     <div class="section-header">
       <div class="section-title">Countdown hold</div>
     </div>
+
+    <!--
+      FIX: The hold panel now has a mission selector so you can choose
+      which mission to hold independently. Each mission gets its own
+      hold key: countdown-hold-{missionId}
+    -->
     <div class="hold-panel" id="hold-panel">
-      <div class="hold-indicator">
-        <div class="hold-dot" id="hold-dot"></div>
-        <div>
-          <div class="hold-label" id="hold-label">Counting down normally</div>
-          <div class="hold-meta" id="hold-meta"></div>
+      <!-- Status row -->
+      <div class="hold-top-row">
+        <div class="hold-indicator">
+          <div class="hold-dot" id="hold-dot"></div>
+          <div>
+            <div class="hold-label" id="hold-label">Select a mission to hold</div>
+            <div class="hold-meta" id="hold-meta"></div>
+          </div>
         </div>
+        <button class="btn-hold" id="hold-btn" onclick="toggleHold()">Trigger Hold</button>
+        <button class="btn-hold btn-reset" onclick="resetHoldTime()">Reset hold time</button>
       </div>
-      <button class="btn-hold" id="hold-btn" onclick="toggleHold()">Trigger Hold</button>
-      <button class="btn-hold btn-reset" onclick="resetHoldTime()">Reset hold time</button>
+      <!-- Mission selector -->
+      <div class="hold-mission-row">
+        <span class="hold-mission-label">Mission:</span>
+        <select class="hold-mission-select" id="hold-mission-select" onchange="onHoldMissionChange()">
+          <option value="">— select mission —</option>
+        </select>
+      </div>
     </div>
 
     <!-- Missions -->
@@ -777,7 +845,7 @@
 
 <script>
 // ══════════════════════════════════════════════
-// CONFIG — update these before deploying
+// CONFIG
 // ══════════════════════════════════════════════
 const WORKER_URL = 'https://b16-admin-worker.b16setc.workers.dev';
 
@@ -793,13 +861,15 @@ let pollInterval = null;
 let heartbeatInterval = null;
 const debounceTimers = {};
 
+// The mission currently selected in the hold panel (its key)
+let selectedHoldMissionKey = null;
+
 // ══════════════════════════════════════════════
 // LOGIN
 // ══════════════════════════════════════════════
 document.getElementById('un-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('pw-input').focus();
 });
-
 document.getElementById('pw-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') doLogin();
 });
@@ -904,6 +974,7 @@ function startPolling() {
         renderHold();
         renderPresence();
         renderMissionsSmart();
+        refreshHoldMissionSelector();
       }
     } catch(e) {}
   }, 1000);
@@ -957,26 +1028,80 @@ function renderAll() {
   renderHold();
   renderMissions();
   renderPresence();
+  refreshHoldMissionSelector();
 }
 
+// ── Populate the mission dropdown in the hold panel ──────────────────────────
+function refreshHoldMissionSelector() {
+  const sel = document.getElementById('hold-mission-select');
+  const prevKey = selectedHoldMissionKey || sel.value;
+
+  const upcomingMissions = Object.entries(appData.missions || {})
+    .filter(([, m]) => m.status === 'upcoming' && m.launchTimestamp)
+    .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
+
+  sel.innerHTML = '<option value="">— select mission —</option>';
+  upcomingMissions.forEach(([key, m]) => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = m.name || key;
+    if (key === prevKey) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  // Restore selection
+  if (prevKey && sel.value === prevKey) {
+    selectedHoldMissionKey = prevKey;
+  } else if (!prevKey && upcomingMissions.length === 1) {
+    // Auto-select if there's only one upcoming mission
+    sel.value = upcomingMissions[0][0];
+    selectedHoldMissionKey = upcomingMissions[0][0];
+  } else {
+    selectedHoldMissionKey = sel.value || null;
+  }
+}
+
+function onHoldMissionChange() {
+  selectedHoldMissionKey = document.getElementById('hold-mission-select').value || null;
+  renderHold();
+}
+
+// ── Render the hold status panel for the currently selected mission ──────────
 function renderHold() {
-  const hold = appData['countdown-hold'];
-  const dot = document.getElementById('hold-dot');
+  const dot   = document.getElementById('hold-dot');
   const label = document.getElementById('hold-label');
-  const meta = document.getElementById('hold-meta');
-  const btn = document.getElementById('hold-btn');
+  const meta  = document.getElementById('hold-meta');
+  const btn   = document.getElementById('hold-btn');
+
+  if (!selectedHoldMissionKey) {
+    dot.classList.remove('held');
+    label.textContent = 'No mission selected';
+    meta.textContent  = 'Choose a mission from the dropdown below';
+    btn.textContent   = 'Trigger Hold';
+    btn.classList.remove('btn-resume');
+    btn.disabled = true;
+    return;
+  }
+
+  btn.disabled = false;
+
+  // Read per-mission hold key: countdown-hold-{missionId}
+  const holdKey = 'countdown-hold-' + selectedHoldMissionKey;
+  const hold = appData[holdKey] || { isHeld: false, totalHoldDuration: 0 };
+  const missionName = appData.missions[selectedHoldMissionKey]?.name || selectedHoldMissionKey;
+
   if (hold.isHeld) {
     dot.classList.add('held');
-    label.textContent = 'HOLD active';
+    label.textContent = `HOLD active — ${missionName}`;
     const since = hold.holdStartTime ? new Date(hold.holdStartTime).toLocaleTimeString() : '—';
     const total = hold.totalHoldDuration ? Math.round(hold.totalHoldDuration / 1000) + 's accumulated' : '';
-    meta.textContent = 'Held since ' + since + (total ? ' · ' + total : '');
-    btn.textContent = 'Resume countdown';
+    meta.textContent  = 'Held since ' + since + (total ? ' · ' + total : '');
+    btn.textContent   = 'Resume countdown';
     btn.classList.add('btn-resume');
   } else {
     dot.classList.remove('held');
-    label.textContent = 'Counting down normally';
-    meta.textContent = hold.totalHoldDuration
+    label.textContent = `Counting down normally — ${missionName}`;
+    meta.textContent  = hold.totalHoldDuration
       ? Math.round(hold.totalHoldDuration / 1000) + 's total hold time this session'
       : 'No holds triggered';
     btn.textContent = 'Trigger Hold';
@@ -1008,7 +1133,6 @@ function renderMissionsSmart() {
   missions.forEach(([key, m], idx) => {
     const existing = list.querySelector(`.mission-card[data-key="${key}"]`);
     const isEditing = existing && existing.classList.contains('expanded') && document.activeElement?.closest(`.mission-card[data-key="${key}"]`);
-
     if (isEditing) return;
 
     const newCard = makeMissionCard(key, m);
@@ -1031,11 +1155,18 @@ function makeMissionCard(key, m) {
   const statusClass = 'status-' + (m.status || 'upcoming');
   const statusLabel = (m.status || 'upcoming').replace('-', ' ');
 
+  // Show a hold badge in the row if this mission is currently on hold
+  const holdKey = 'countdown-hold-' + key;
+  const isHeld = appData[holdKey]?.isHeld === true;
+  const holdBadgeHtml = isHeld
+    ? `<span class="mission-hold-status">⏸ HOLD</span>`
+    : '';
+
   card.innerHTML = `
     <div class="mission-row" onclick="toggleCard('${key}')">
       <div class="mission-order">#${m.order || '?'}</div>
       <div class="mission-name-col">
-        <div class="mission-name">${esc(m.name || 'Untitled')}</div>
+        <div class="mission-name">${esc(m.name || 'Untitled')}${holdBadgeHtml}</div>
         <div class="mission-date">${esc(m.dateDisplay || '')}</div>
       </div>
       <span class="status-badge ${statusClass}">${statusLabel}</span>
@@ -1138,7 +1269,6 @@ function toggleCard(key) {
 async function addMission() {
   const newKey = 'mission_' + Date.now();
 
-  // Bump all existing missions' order by 1
   for (const [k, m] of Object.entries(appData.missions || {})) {
     m.order = (m.order || 1) + 1;
     await save(`/data/missions/${k}`, m);
@@ -1159,6 +1289,7 @@ async function addMission() {
   await save(`/data/missions/${newKey}`, newMission);
   expandedCard = newKey;
   renderMissions();
+  refreshHoldMissionSelector();
   document.querySelector(`.mission-card[data-key="${newKey}"]`)
     ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -1177,6 +1308,7 @@ async function saveMission(key) {
   appData.missions[key] = updated;
   await save(`/data/missions/${key}`, updated);
   renderMissions();
+  refreshHoldMissionSelector();
 }
 
 async function deleteMission(key) {
@@ -1187,7 +1319,6 @@ async function deleteMission(key) {
 
   const res = await workerRequest('DELETE', `/data/missions/${key}`);
   if (res.ok) {
-    // Decrement all missions that were ranked below the deleted one
     for (const [k, m] of Object.entries(appData.missions)) {
       if ((m.order || 0) > deletedOrder) {
         m.order = m.order - 1;
@@ -1196,36 +1327,70 @@ async function deleteMission(key) {
     }
     toast('Mission deleted', 'success');
     expandedCard = null;
+    if (selectedHoldMissionKey === key) selectedHoldMissionKey = null;
     renderMissions();
+    refreshHoldMissionSelector();
+    renderHold();
   } else {
     toast('Delete failed', 'error');
   }
 }
 
+// ══════════════════════════════════════════════
+// HOLD — PER MISSION
+// ══════════════════════════════════════════════
 async function toggleHold() {
-  const hold = appData['countdown-hold'];
-  const now = Date.now();
+  if (!selectedHoldMissionKey) {
+    toast('Select a mission first', 'error');
+    return;
+  }
+
+  const mission = appData.missions[selectedHoldMissionKey];
+  if (!mission) { toast('Mission not found', 'error'); return; }
+
+  // Per-mission hold key
+  const holdKey  = 'countdown-hold-' + selectedHoldMissionKey;
+  const hold = appData[holdKey] || { isHeld: false, totalHoldDuration: 0 };
+  const now  = Date.now();
+
   if (!hold.isHeld) {
-    hold.isHeld = true;
+    // ── FIX: compute the exact ms remaining RIGHT NOW so the public site
+    //         can freeze the countdown display at a real number, not null. ──
+    const launchTs       = mission.launchTimestamp || 0;
+    const adjustedLaunch = launchTs + (hold.totalHoldDuration || 0);
+    const msRemaining    = adjustedLaunch - now;   // positive = still counting down
+
+    hold.isHeld        = true;
     hold.holdStartTime = now;
-    hold.timeAtHold = hold.timeAtHold || null;
+    hold.timeAtHold    = msRemaining;              // ✅ always a valid number
   } else {
     const elapsed = now - (hold.holdStartTime || now);
     hold.totalHoldDuration = (hold.totalHoldDuration || 0) + elapsed;
-    hold.isHeld = false;
+    hold.isHeld        = false;
     hold.holdStartTime = null;
+    // Keep timeAtHold as-is; public site won't use it when isHeld=false
   }
+
+  appData[holdKey] = hold;
   renderHold();
-  await save('/data/countdown-hold', hold);
+  await save('/data/' + holdKey, hold);
 }
 
 async function resetHoldTime() {
-  if (!confirm('Reset accumulated hold time to zero?')) return;
-  const hold = appData['countdown-hold'];
+  if (!selectedHoldMissionKey) {
+    toast('Select a mission first', 'error');
+    return;
+  }
+  if (!confirm('Reset accumulated hold time for this mission to zero?')) return;
+
+  const holdKey = 'countdown-hold-' + selectedHoldMissionKey;
+  const hold = appData[holdKey] || { isHeld: false, totalHoldDuration: 0 };
   hold.totalHoldDuration = 0;
   if (hold.isHeld) hold.holdStartTime = Date.now();
+
+  appData[holdKey] = hold;
   renderHold();
-  await save('/data/countdown-hold', hold);
+  await save('/data/' + holdKey, hold);
 }
 
 // ══════════════════════════════════════════════
