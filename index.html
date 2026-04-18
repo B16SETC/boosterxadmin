@@ -376,6 +376,7 @@
   .status-failure    { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
   .status-partial-success { background: rgba(249,115,22,0.12); color: #fb923c; border: 1px solid rgba(249,115,22,0.25); }
   .status-upcoming   { background: rgba(0,212,255,0.1);   color: var(--accent); border: 1px solid rgba(0,212,255,0.2); }
+  .status-in-progress { background: rgba(255,140,0,0.15); color: #ffa533; border: 1px solid rgba(255,140,0,0.35); animation: pulseDot 1.5s infinite; }
   .mission-chevron {
     color: var(--muted);
     font-size: 12px;
@@ -1189,7 +1190,7 @@ function makeMissionCard(key, m) {
         <div class="field">
           <label>Status</label>
           <select data-field="status">
-            ${['upcoming','success','failure','partial-success'].map(s =>
+            ${['upcoming','in-progress','success','failure','partial-success'].map(s =>
               `<option value="${s}" ${m.status===s?'selected':''}>${s}</option>`
             ).join('')}
           </select>
