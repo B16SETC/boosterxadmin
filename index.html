@@ -709,6 +709,169 @@
     letter-spacing: 0.06em;
   }
   .unix-now-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ─── CAMERAS PANEL ─── */
+  .cameras-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .cameras-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .cameras-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .cameras-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .cameras-dot.live {
+    background: var(--danger);
+    box-shadow: 0 0 0 4px rgba(239,68,68,0.15);
+    animation: pulseDot 1.5s infinite;
+  }
+  .cameras-status-label {
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .btn-toggle-cameras {
+    background: transparent;
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .btn-toggle-cameras:hover { border-color: var(--success); color: var(--success); }
+  .btn-toggle-cameras.enabled:hover { border-color: var(--danger); color: var(--danger); }
+  .tunnel-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tunnel-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .tunnel-input {
+    flex: 1;
+    min-width: 220px;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .tunnel-input:focus { border-color: var(--accent); }
+  .btn-save-tunnel {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-save-tunnel:hover { background: #33ddff; }
+  .camera-list { display: flex; flex-direction: column; gap: 6px; }
+  .camera-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+  .camera-item input {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    flex: 1;
+    min-width: 60px;
+  }
+  .camera-item-sep {
+    color: var(--border2);
+    font-family: var(--mono);
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .btn-remove-camera {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.15s;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .btn-remove-camera:hover { color: var(--danger); }
+  .btn-add-camera {
+    background: transparent;
+    border: 1px dashed var(--border2);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.06em;
+    width: 100%;
+  }
+  .btn-add-camera:hover { border-color: var(--accent); color: var(--accent); }
+  .camera-col-headers {
+    display: flex;
+    gap: 8px;
+    padding: 0 12px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .camera-col-headers span:first-child { flex: 1.2; }
+  .camera-col-headers span:nth-child(2) { flex: 0.8; }
+  .camera-col-headers span:nth-child(3) { flex: 1.5; }
+  .camera-col-headers span:last-child { width: 24px; }
 </style>
 </head>
 <body>
@@ -747,6 +910,43 @@
   </header>
 
   <div class="main">
+    <!-- Cameras -->
+    <div class="section-header" style="margin-top:2.5rem">
+      <div class="section-title">Live cameras</div>
+    </div>
+
+    <div class="cameras-panel" id="cameras-panel">
+      <!-- Status + toggle -->
+      <div class="cameras-top-row">
+        <div class="cameras-status">
+          <div class="cameras-dot" id="cameras-dot"></div>
+          <div class="cameras-status-label" id="cameras-status-label">Cameras offline</div>
+        </div>
+        <button class="btn-toggle-cameras" id="cameras-toggle-btn" onclick="toggleCamerasEnabled()">Go Live</button>
+      </div>
+
+      <!-- Tunnel URL -->
+      <div class="tunnel-row">
+        <span class="tunnel-label">Tunnel URL:</span>
+        <input class="tunnel-input" id="tunnel-url-input" type="url"
+          placeholder="https://xxxx-xxxx.trycloudflare.com"
+          oninput="scheduleCamerasSave()">
+        <button class="btn-save-tunnel" onclick="saveCamerasNow()">Save</button>
+      </div>
+
+      <!-- Camera list -->
+      <div>
+        <div class="camera-col-headers" style="margin-bottom:4px;">
+          <span>Name</span>
+          <span>Description</span>
+          <span>Camera ID (?id=…)</span>
+          <span></span>
+        </div>
+        <div class="camera-list" id="camera-list"></div>
+        <button class="btn-add-camera" onclick="addCamera()" style="margin-top:6px;">+ Add camera</button>
+      </div>
+    </div>
+
     <!-- Countdown Hold -->
     <div class="section-header">
       <div class="section-title">Countdown hold</div>
@@ -1030,7 +1230,128 @@ function renderAll() {
   renderMissions();
   renderPresence();
   refreshHoldMissionSelector();
+  renderCamerasAdmin();
 }
+
+// ══════════════════════════════════════════════
+// CAMERAS ADMIN
+// ══════════════════════════════════════════════
+let camerasSaveTimer = null;
+
+function getCamerasData() {
+  return appData.cameras || { enabled: false, tunnelUrl: '', cameras: {} };
+}
+
+function renderCamerasAdmin() {
+  const cfg = getCamerasData();
+  const enabled = !!cfg.enabled;
+
+  const dot   = document.getElementById('cameras-dot');
+  const label = document.getElementById('cameras-status-label');
+  const btn   = document.getElementById('cameras-toggle-btn');
+  const input = document.getElementById('tunnel-url-input');
+
+  dot.classList.toggle('live', enabled);
+  label.textContent = enabled ? 'Cameras LIVE — visible on site' : 'Cameras offline — hidden from site';
+  btn.textContent   = enabled ? 'Take Offline' : 'Go Live';
+  btn.classList.toggle('enabled', enabled);
+
+  // Only set input if user isn't actively editing
+  if (document.activeElement !== input) {
+    input.value = cfg.tunnelUrl || '';
+  }
+
+  renderCameraList(cfg.cameras || {});
+}
+
+function renderCameraList(cameras) {
+  const list = document.getElementById('camera-list');
+  const entries = Object.entries(cameras);
+
+  if (entries.length === 0) {
+    list.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 12px;">No cameras yet. Add one below.</div>';
+    return;
+  }
+
+  list.innerHTML = entries.map(([key, cam]) => `
+    <div class="camera-item" data-key="${esc(key)}">
+      <input type="text" placeholder="Name" value="${esc(cam.name || '')}"
+        data-field="name" oninput="onCameraFieldInput(this)" style="flex:1.2">
+      <span class="camera-item-sep">|</span>
+      <input type="text" placeholder="Description (optional)" value="${esc(cam.desc || '')}"
+        data-field="desc" oninput="onCameraFieldInput(this)" style="flex:0.8">
+      <span class="camera-item-sep">|</span>
+      <input type="text" placeholder="Camera ID e.g. -572727758" value="${esc(cam.id || '')}"
+        data-field="id" oninput="onCameraFieldInput(this)" style="flex:1.5;font-size:11px;">
+      <button class="btn-remove-camera" onclick="removeCamera('${esc(key)}')" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+function onCameraFieldInput(el) {
+  scheduleCamerasSave();
+}
+
+function buildCamerasPayload() {
+  const cfg = getCamerasData();
+  const cameras = {};
+  document.querySelectorAll('#camera-list .camera-item').forEach(row => {
+    const key  = row.dataset.key;
+    const name = row.querySelector('[data-field="name"]').value.trim();
+    const desc = row.querySelector('[data-field="desc"]').value.trim();
+    const id   = row.querySelector('[data-field="id"]').value.trim();
+    cameras[key] = { name, desc, id };
+  });
+  return {
+    enabled: cfg.enabled,
+    tunnelUrl: document.getElementById('tunnel-url-input').value.trim(),
+    cameras,
+  };
+}
+
+function scheduleCamerasSave() {
+  clearTimeout(camerasSaveTimer);
+  camerasSaveTimer = setTimeout(saveCamerasNow, 800);
+}
+
+async function saveCamerasNow() {
+  clearTimeout(camerasSaveTimer);
+  const payload = buildCamerasPayload();
+  appData.cameras = payload;
+  await save('/data/cameras', payload);
+  renderCamerasAdmin();
+}
+
+async function toggleCamerasEnabled() {
+  const cfg = getCamerasData();
+  const payload = buildCamerasPayload();
+  payload.enabled = !cfg.enabled;
+  appData.cameras = payload;
+  await save('/data/cameras', payload);
+  renderCamerasAdmin();
+}
+
+function addCamera() {
+  const key = 'cam_' + Date.now();
+  const cfg = getCamerasData();
+  if (!cfg.cameras) cfg.cameras = {};
+  cfg.cameras[key] = { name: '', desc: '', id: '' };
+  appData.cameras = cfg;
+  renderCameraList(cfg.cameras);
+  // Focus the new name input
+  const rows = document.querySelectorAll('#camera-list .camera-item');
+  if (rows.length) rows[rows.length - 1].querySelector('[data-field="name"]').focus();
+  scheduleCamerasSave();
+}
+
+async function removeCamera(key) {
+  const cfg = getCamerasData();
+  if (!cfg.cameras) return;
+  delete cfg.cameras[key];
+  appData.cameras = cfg;
+  renderCameraList(cfg.cameras);
+  scheduleCamerasSave();
+}
+
 
 // ── Populate the mission dropdown in the hold panel ──────────────────────────
 function refreshHoldMissionSelector() {
